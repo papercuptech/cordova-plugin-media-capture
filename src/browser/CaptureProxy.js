@@ -66,7 +66,7 @@ function CameraUI () {
         '<div id="captureHint" style="height:100%; position:relative; display:inline-flex; align-content:flex-start;">' +
         '<h2 style="position: absolute; width: 100%; background-color: rgba(255,255,255,0.25); margin: 0">' +
             'Click on preview to capture image. Click outside of preview to cancel.</h1>' +
-        '<video id="capturePreview" style="height: 100%"></video>' +
+        '<video id="capturePreview" style="height: 100%" autoplay muted playsinline></video>' +
         '</div>';
 
     // Add container element to DOM but do not display it since visibility == hidden
@@ -74,9 +74,6 @@ function CameraUI () {
 
     // Create fullscreen preview
     var preview = document.getElementById('capturePreview');
-    preview.autoplay = true;
-    // We'll show preview only when video element content
-    // is fully loaded to avoid glitches
     preview.onplay = function () {
         container.style.visibility = 'visible';
     };
@@ -114,28 +111,21 @@ CameraUI.prototype.startPreview = function (count, successCB, errorCB) {
         errorCB(new CaptureError(CaptureError.CAPTURE_NO_MEDIA_FILES));
     };
 
-    navigator.getUserMedia({video: true}, function (previewStream) {
-        // Save video stream to be able to stop it later
-        that._previewStream = previewStream;
-        that.preview.src = URL.createObjectURL(previewStream); // eslint-disable-line no-undef
-        // We don't need to set visibility = true for preview element
-        // since this will be done automatically in onplay event handler
-    }, function (/* err */) {
-        errorCB(new CaptureError(CaptureError.CAPTURE_INTERNAL_ERR));
-    });
+    navigator.mediaDevices.getUserMedia({video: true})
+       .then(stream => this.preview.srcObject = stream)
+       .catch(err => errorCB(new CaptureError(CaptureError.CAPTURE_INTERNAL_ERR)))
 };
 
 /**
  * Destroys camera preview, removes all elements created
  */
 CameraUI.prototype.destroyPreview = function () {
-    this.preview.pause();
-    this.preview.src = null;
-    this._previewStream.stop();
-    this._previewStream = null;
-    if (this.container) {
-        document.body.removeChild(this.container);
-    }
+    if(!this.preview) return
+    this.preview.srcObject.getTracks().forEach(track => track.stop())
+    document.body.removeChild(this.container);
+    this.preview.srcObject = null
+    this.preview = null
+    this.container = null
 };
 
 module.exports = {
@@ -170,12 +160,7 @@ module.exports = {
         // Counter for already taken images
         var imagesTaken = 0;
 
-        navigator.getUserMedia = navigator.getUserMedia ||
-                         navigator.webkitGetUserMedia ||
-                         navigator.mozGetUserMedia ||
-                         navigator.msGetUserMedia;
-
-        if (!navigator.getUserMedia) {
+        if (!navigator.mediaDevices.getUserMedia) {
             fail(CaptureError.CAPTURE_NOT_SUPPORTED);
             return;
         }
