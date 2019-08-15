@@ -121,7 +121,8 @@ CameraUI.prototype.startPreview = function (count, successCB, errorCB) {
  */
 CameraUI.prototype.destroyPreview = function () {
     if(!this.preview) return
-    this.preview.srcObject.getTracks().forEach(track => track.stop())
+    if(this.preview.srcObject)
+        this.preview.srcObject.getTracks().forEach(track => track.stop())
     document.body.removeChild(this.container);
     this.preview.srcObject = null
     this.preview = null
